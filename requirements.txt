@@ -2,3 +2,4 @@ Flask
 Flask-Session
 py-cord
 python-dotenv
+requests
