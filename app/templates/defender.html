@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block page_title %}Defender Stats{% endblock %}
+{% set active_page = 'def' %}
+
+{% block heading %}Season 24 Defender <span>Stats</span>{% endblock %}
+
+{% block content %}
+
+  {# ── Division 1 ── #}
+  <div class="tab-panel active" id="panel-div1">
+    <div class="table-container fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Tackles</th>
+            <th>Sacks</th>
+            <th>Safeties</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in def_stats_div1 %}
+            <tr>
+              <td><a href="{{ url_for('player_stats', username=row['username']) }}" style="color:inherit;text-decoration:none;">{{ row['username'] }}</a></td>
+              <td>{{ row['tackles'] }}</td>
+              <td>{{ row['sacks'] }}</td>
+              <td>{{ row['safeties'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="4">DIVISION 1 — SEASON 24 DEFENDER STATS</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  {# ── Division 2 ── #}
+  <div class="tab-panel" id="panel-div2">
+    <div class="table-container fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Tackles</th>
+            <th>Sacks</th>
+            <th>Safeties</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in def_stats_div2 %}
+            <tr>
+              <td><a href="{{ url_for('player_stats', username=row['username']) }}" style="color:inherit;text-decoration:none;">{{ row['username'] }}</a></td>
+              <td>{{ row['tackles'] }}</td>
+              <td>{{ row['sacks'] }}</td>
+              <td>{{ row['safeties'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="4">DIVISION 2 — SEASON 24 DEFENDER STATS</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+{% endblock %}

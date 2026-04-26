@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {% if d1_stats is not none %}
+    <title>{{ username }} — AFG Statsheet</title>
+  {% elif d2_stats is not none %}
+    <title>{{ username }} — AFG Statsheet</title>
+  {% endif %}
+
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            crimson: '#e42229',
+            'dark-0': '#080808',
+            'dark-1': '#0f0f0f',
+            'dark-2': '#141414',
+            'dark-3': '#1c1c1c',
+            'dark-4': '#242424',
+          },
+          fontFamily: {
+            display:    ['"Bebas Neue"', 'sans-serif'],
+            condensed:  ['"Barlow Condensed"', 'sans-serif'],
+            body:       ['Barlow', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root { --red: #e42229; --bg: #080808; }
+    html  { scroll-behavior: smooth; }
+    body  { background: var(--bg); }
+
+    /* Canvas */
+    #bg-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0; pointer-events: none; opacity: .45;
+    }
+
+    .page-shell { position: relative; z-index: 1; min-height: 100vh; }
+
+    /* ── Nav ── */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8,8,8,.95);
+      border-bottom: 1px solid rgba(228,34,41,.18);
+      backdrop-filter: blur(8px);
+    }
+
+    /* ── Hero ── */
+    .hero { position: relative; overflow: hidden; border-bottom: 2px solid var(--red); }
+
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(115deg, rgba(228,34,41,.11) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        repeating-linear-gradient(0deg,   rgba(228,34,41,.04) 0,rgba(228,34,41,.04) 1px,transparent 1px,transparent 40px),
+        repeating-linear-gradient(90deg,  rgba(228,34,41,.04) 0,rgba(228,34,41,.04) 1px,transparent 1px,transparent 40px);
+    }
+
+    /* Avatar */
+    .avatar-wrap {
+      position: relative; display: inline-block; flex-shrink: 0;
+    }
+    .avatar-wrap::before {
+      content: ''; position: absolute; inset: -5px;
+      border: 2px solid var(--red);
+      clip-path: polygon(10px 0%,100% 0%,100% calc(100% - 10px),calc(100% - 10px) 100%,0% 100%,0% 10px);
+    }
+    .avatar-wrap::after {
+      content: ''; position: absolute; inset: -10px;
+      border: 1px solid rgba(228,34,41,.2);
+      clip-path: polygon(16px 0%,100% 0%,100% calc(100% - 16px),calc(100% - 16px) 100%,0% 100%,0% 16px);
+    }
+    .avatar-wrap img {
+      display: block; object-fit: cover;
+      clip-path: polygon(8px 0%,100% 0%,100% calc(100% - 8px),calc(100% - 8px) 100%,0% 100%,0% 8px);
+      background: #1c1c1c;
+    }
+
+    /* Position badge */
+    .pos-badge {
+      display: inline-flex; align-items: center;
+      background: var(--red); color: #fff;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: .75rem; letter-spacing: .22em;
+      padding: 3px 12px 2px;
+      clip-path: polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);
+    }
+
+    .div-pill {
+      display: inline-flex;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: .68rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+      padding: 2px 10px;
+      border: 1px solid rgba(228,34,41,.45);
+      color: rgba(228,34,41,.85);
+      background: rgba(228,34,41,.07);
+    }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      position: relative;
+      background: #0f0f0f;
+      border: 1px solid rgba(255,255,255,.05);
+      border-top: 2px solid var(--red);
+      padding: 1.2rem 1.4rem 1rem;
+      overflow: hidden;
+      transition: background .25s, border-color .25s, box-shadow .25s;
+      cursor: default;
+    }
+    /* ambient top glow — always present, pulses on hover */
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(to bottom, rgba(228,34,41,.09), transparent);
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    /* radial bloom that expands on hover */
+    .stat-card::after {
+      content: ''; position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 90% 70% at 50% 0%, rgba(228,34,41,.22) 0%, rgba(228,34,41,.06) 45%, transparent 75%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s ease;
+    }
+    .stat-card:hover {
+      background: #130608;
+      border-color: rgba(228,34,41,.55);
+      border-top-color: #ff2233;
+      box-shadow:
+        0 0 0 1px rgba(228,34,41,.15),
+        0 4px 32px rgba(228,34,41,.18),
+        0 1px 0 rgba(228,34,41,.4) inset;
+    }
+    .stat-card:hover::before { opacity: 1.6; }
+    .stat-card:hover::after  { opacity: 1; }
+
+    .stat-card.gold  { border-top-color: #f59e0b; }
+    .stat-card.gold::before { background: linear-gradient(to bottom, rgba(245,158,11,.09), transparent); }
+    .stat-card.gold::after  {
+      background: radial-gradient(ellipse 90% 70% at 50% 0%, rgba(245,158,11,.2) 0%, rgba(245,158,11,.05) 45%, transparent 75%);
+    }
+    .stat-card.gold:hover {
+      border-color: rgba(245,158,11,.5);
+      border-top-color: #fbbf24;
+      box-shadow:
+        0 0 0 1px rgba(245,158,11,.15),
+        0 4px 32px rgba(245,158,11,.16),
+        0 1px 0 rgba(245,158,11,.35) inset;
+    }
+
+    .stat-label  { font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:600; letter-spacing:.2em; text-transform:uppercase; color:#555; margin-bottom:.35rem; }
+    .stat-number { font-family:'Bebas Neue',sans-serif; font-size:2.9rem; line-height:1; color:#fff; letter-spacing:.03em; }
+    .stat-rank   { font-family:'Barlow Condensed',sans-serif; font-size:.67rem; letter-spacing:.1em; color:rgba(228,34,41,.7); margin-top:.3rem; }
+    .stat-rank.top { color:#f59e0b; }
+
+    /* ── Section heading ── */
+    .sec-title {
+      font-family:'Bebas Neue',sans-serif; font-size:1.45rem; letter-spacing:.14em; color:#fff;
+      display:flex; align-items:center; gap:.7rem;
+    }
+    .sec-title::before { content:''; display:block; width:4px; height:1.35rem; background:var(--red); flex-shrink:0; }
+    .sec-title span { color:var(--red); }
+
+    /* ── Game log ── */
+    .log-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid rgba(255,255,255,.05); }
+
+    .game-log { width:100%; border-collapse:collapse; font-family:'Barlow Condensed',sans-serif; font-size:.88rem; }
+
+    .game-log thead tr { background:rgba(228,34,41,.12); border-bottom:2px solid var(--red); }
+    .game-log thead th {
+      font-family:'Bebas Neue',sans-serif; font-size:.73rem; letter-spacing:.2em;
+      color:rgba(228,34,41,.9); text-align:center; padding:.75rem 1rem;
+      border-right:1px solid rgba(228,34,41,.1); white-space:nowrap;
+    }
+    .game-log thead th:first-child { text-align:left; }
+    .game-log thead th:last-child  { border-right:none; }
+
+    .game-log tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .18s, box-shadow .18s;
+      cursor: pointer;
+    }
+    .game-log tbody tr:nth-child(even) { background:rgba(255,255,255,.018); }
+    .game-log tbody tr:hover {
+      background: linear-gradient(90deg, rgba(228,34,41,.22) 0%, rgba(228,34,41,.10) 35%, rgba(228,34,41,.03) 75%, transparent 100%);
+      box-shadow:
+        inset 4px 0 0 var(--red),
+        inset 0 0 40px rgba(228,34,41,.07),
+        0 0 20px rgba(228,34,41,.06);
+    }
+    .game-log tbody tr.row-open {
+      background: linear-gradient(90deg, rgba(228,34,41,.28) 0%, rgba(228,34,41,.12) 40%, rgba(228,34,41,.04) 80%, transparent 100%);
+      box-shadow: inset 4px 0 0 #ff2233, 0 0 24px rgba(228,34,41,.1);
+    }
+
+    .game-log tbody td {
+      padding:.7rem 1rem; color:#bbb; text-align:center;
+      border-right:1px solid rgba(255,255,255,.03); white-space:nowrap;
+    }
+    .game-log tbody td:first-child {
+      text-align:left; color:#fff; font-weight:600; letter-spacing:.03em;
+      border-right:1px solid rgba(228,34,41,.15);
+    }
+    .game-log tbody td:last-child { border-right:none; }
+
+    .c-dim  { color:#3a3a3a; }
+
+    .walkon-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:.64rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+      padding:2px 7px;
+      background:rgba(228,34,41,.13); border:1px solid rgba(228,34,41,.4); color:rgba(228,34,41,.9);
+    }
+
+    .player-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:.64rem; font-weight:700; letter-spacing:.12em;
+      padding:2px 7px;
+      background:rgba(34,197,94,.13); border:1px solid rgba(34,197,94,.4);
+      color:rgba(34,197,94,.9);
+    }
+
+    .spectator-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:.64rem; font-weight:700; letter-spacing:.12em;
+      padding:2px 7px;
+      background:rgba(128, 179, 9, 0.13); border:1px solid rgba(203, 214, 52, 0.4);
+      color:rgba(203, 214, 52, 0.9);
+    }
+
+    /* ── Games Played Bars ── */
+    .games-played-meta { display: flex; flex-direction: column; }
+    .games-played-bars { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.1rem; }
+    .games-played-row  { display: flex; align-items: center; gap: 0.55rem; }
+    .gp-div-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.72rem; letter-spacing: 0.18em;
+      color: #555; width: 1.4rem; flex-shrink: 0;
+    }
+    .gp-bar-track {
+      width: 90px; height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px; overflow: hidden;
+      flex-shrink: 0;
+    }
+    .gp-bar {
+      height: 100%; border-radius: 2px;
+      transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+    .gp-bar-d1 {
+      background: linear-gradient(90deg, #c8102e, #ff4560);
+      box-shadow: 0 0 6px rgba(228,34,41,0.6);
+    }
+    .gp-bar-d2 {
+      background: linear-gradient(90deg, #7a0a1c, #c8102e);
+      box-shadow: 0 0 6px rgba(200,16,46,0.3);
+    }
+    .gp-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.85rem; letter-spacing: 0.08em; color: #aaa;
+    }
+
+    /* ── Division tabs (Season Totals outer) ── */
+    .div-tabs-wrap { margin-bottom: 0; }
+    .div-tabs {
+      display: flex; gap: 0;
+      border-bottom: 1px solid rgba(228,34,41,0.18);
+    }
+    .div-tab {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem; letter-spacing: 0.22em;
+      padding: 0.6rem 1.8rem;
+      cursor: pointer; color: #383838;
+      border: 1px solid transparent; border-bottom: none;
+      background: transparent;
+      transition: color 0.18s, background 0.18s, box-shadow 0.18s;
+      position: relative; bottom: -1px;
+      user-select: none; white-space: nowrap;
+    }
+    .div-tab:hover {
+      color: #ddd;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.14), rgba(228,34,41,0.04));
+      box-shadow: inset 0 2px 0 rgba(228,34,41,0.6), 0 0 18px rgba(228,34,41,0.08);
+    }
+    .div-tab.active {
+      color: #fff;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.16), rgba(228,34,41,0.04));
+      border-color: rgba(228,34,41,0.35);
+      border-bottom-color: #080808;
+      box-shadow: inset 0 2px 0 var(--red), 0 0 20px rgba(228,34,41,0.12);
+    }
+    .div-panel { display: none; }
+    .div-panel.active { display: block; }
+
+    /* ── Position Tabs (inner) ── */
+    .pos-tabs-wrap { margin-bottom: 1.25rem; padding-top: 1rem; }
+    .pos-tabs {
+      display: flex; gap: 0; flex-wrap: wrap;
+      border-bottom: 1px solid rgba(228,34,41,0.12);
+    }
+    .pos-tab {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.78rem; letter-spacing: 0.18em;
+      padding: 0.45rem 1.1rem;
+      cursor: pointer; color: #383838;
+      border: 1px solid transparent; border-bottom: none;
+      background: transparent;
+      transition: color 0.18s, background 0.18s, box-shadow 0.18s;
+      position: relative; bottom: -1px;
+      user-select: none; white-space: nowrap;
+    }
+    .pos-tab:hover {
+      color: #ccc;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.12), rgba(228,34,41,0.03));
+      box-shadow: inset 0 2px 0 rgba(228,34,41,0.5);
+    }
+    .pos-tab.active {
+      color: #fff;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.14), rgba(228,34,41,0.03));
+      border-color: rgba(228,34,41,0.28);
+      border-bottom-color: #080808;
+      box-shadow: inset 0 2px 0 rgba(228,34,41,0.9);
+    }
+    .pos-panel { display: none; }
+    .pos-panel.active { display: block; }
+
+    /* ── Game Log Tab System ── */
+    .log-div-tabs-wrap { margin-bottom: 0; }
+    .log-div-tabs {
+      display: flex; gap: 0;
+      border-bottom: 1px solid rgba(228,34,41,0.18);
+      margin-bottom: 1rem;
+    }
+    .log-div-tab {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem; letter-spacing: 0.22em;
+      padding: 0.6rem 1.8rem;
+      cursor: pointer; color: #383838;
+      border: 1px solid transparent; border-bottom: none;
+      background: transparent;
+      transition: color 0.18s, background 0.18s, box-shadow 0.18s;
+      position: relative; bottom: -1px;
+      user-select: none; white-space: nowrap;
+    }
+    .log-div-tab:hover {
+      color: #ddd;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.14), rgba(228,34,41,0.04));
+      box-shadow: inset 0 2px 0 rgba(228,34,41,0.6), 0 0 18px rgba(228,34,41,0.08);
+    }
+    .log-div-tab.active {
+      color: #fff;
+      background: linear-gradient(to bottom, rgba(228,34,41,0.16), rgba(228,34,41,0.04));
+      border-color: rgba(228,34,41,0.35);
+      border-bottom-color: #080808;
+      box-shadow: inset 0 2px 0 var(--red), 0 0 20px rgba(228,34,41,0.12);
+    }
+    .log-div-panel { display: none; }
+    .log-div-panel.active { display: block; }
+
+    /* ── Divider ── */
+    .red-divider {
+      display:flex; align-items:center; gap:1rem;
+    }
+    .red-divider .line-l { flex:1; height:1px; background:linear-gradient(to right, var(--red), rgba(228,34,41,.1), transparent); }
+    .red-divider .line-r { flex:1; height:1px; background:linear-gradient(to left,  var(--red), rgba(228,34,41,.1), transparent); }
+    .red-divider .diamond { width:8px; height:8px; background:var(--red); transform:rotate(45deg); }
+
+    /* ── Animations ── */
+    .fade-in { opacity:0; transform:translateY(18px); animation:fiu .75s cubic-bezier(.16,1,.3,1) forwards; }
+    @keyframes fiu { to { opacity:1; transform:none; } }
+    .d1{animation-delay:.05s}.d2{animation-delay:.13s}.d3{animation-delay:.22s}.d4{animation-delay:.32s}
+
+    /* ── Hamburger ── */
+    .hbg { display:none; flex-direction:column; gap:5px; cursor:pointer; background:none; border:none; padding:4px; }
+    .hbg span { display:block; width:22px; height:2px; background:#fff; border-radius:2px; transition:all .3s; }
+    .hbg.open span:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+    .hbg.open span:nth-child(2) { opacity:0; }
+    .hbg.open span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+
+    /* ── Game Detail Drawer ── */
+    .game-detail-row td {
+      padding: 0 !important;
+      border-right: none !important;
+    }
+    .game-detail-drawer {
+      display: none;
+      background: linear-gradient(180deg, rgba(228,34,41,.06) 0%, rgba(10,10,10,1) 60%);
+      border-top: 1px solid rgba(228,34,41,.2);
+      border-bottom: 2px solid rgba(228,34,41,.3);
+      padding: 1.4rem 1.6rem 1.6rem;
+      box-shadow: inset 4px 0 0 rgba(228,34,41,.5);
+    }
+    .game-detail-row.open .game-detail-drawer { display: block; }
+
+    .drawer-pos-tabs {
+      display: flex; gap: 0; flex-wrap: wrap;
+      border-bottom: 1px solid rgba(228,34,41,.15);
+      margin-bottom: 1.2rem;
+    }
+    .drawer-pos-tab {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: .76rem; letter-spacing: .2em;
+      padding: .4rem 1.1rem;
+      cursor: pointer; color: #3a3a3a;
+      border: 1px solid transparent; border-bottom: none;
+      background: transparent;
+      transition: color .18s, background .18s, box-shadow .18s;
+      position: relative; bottom: -1px;
+      user-select: none; white-space: nowrap;
+    }
+    .drawer-pos-tab:hover {
+      color: #ccc;
+      background: linear-gradient(to bottom, rgba(228,34,41,.12), rgba(228,34,41,.03));
+      box-shadow: inset 0 2px 0 rgba(228,34,41,.5);
+    }
+    .drawer-pos-tab.active {
+      color: #fff;
+      background: linear-gradient(to bottom, rgba(228,34,41,.16), rgba(228,34,41,.04));
+      border-color: rgba(228,34,41,.3);
+      border-bottom-color: transparent;
+      box-shadow: inset 0 2px 0 var(--red);
+    }
+    .drawer-pos-panel { display: none; }
+    .drawer-pos-panel.active { display: block; }
+
+    .drawer-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 1px;
+      background: rgba(228,34,41,.1);
+      border: 1px solid rgba(228,34,41,.18);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .drawer-stat {
+      background: #0a0a0a;
+      padding: .95rem 1.1rem .8rem;
+      position: relative;
+      overflow: hidden;
+      transition: background .2s, box-shadow .2s;
+    }
+    .drawer-stat::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 100% 80% at 50% 0%, rgba(228,34,41,.18) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity .25s;
+      pointer-events: none;
+    }
+    .drawer-stat:hover { background: #110508; }
+    .drawer-stat:hover::after { opacity: 1; }
+    .drawer-stat-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: .63rem; font-weight: 600;
+      letter-spacing: .2em; text-transform: uppercase;
+      color: #444; margin-bottom: .25rem;
+    }
+    .drawer-stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem; line-height: 1;
+      color: #fff; letter-spacing: .02em;
+    }
+    .drawer-stat-value.accent { color: var(--red); }
+
+    .drawer-empty {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: .75rem; letter-spacing: .18em;
+      text-transform: uppercase; color: #2a2a2a;
+      padding: 1.5rem 0; text-align: center;
+    }
+
+    /* ── Mobile ── */
+    @media(max-width:768px){\n      .hbg { display:flex; }\n      .desktop-nav {\n        display:none; position:absolute; top:100%; left:0; right:0;\n        flex-direction:column; background:rgba(8,8,8,.98);\n        border-bottom:1px solid rgba(228,34,41,.18); z-index:99;\n      }\n      .desktop-nav.open { display:flex; }\n      .desktop-nav a { padding:.85rem 1.5rem; font-size:.95rem; border-bottom:1px solid rgba(228,34,41,.06); }\n      .hero-inner { flex-direction:column !important; align-items:flex-start !important; padding:2rem 1.2rem !important; gap:1.5rem !important; }\n      .player-name { font-size:2.8rem !important; }\n      .stat-number  { font-size:2.2rem; }\n      .drawer-stats-grid { grid-template-columns: repeat(2, 1fr); }\n    }\n    @media(max-width:480px){\n      .player-name { font-size:2rem !important; }\n    }
+  </style>
+</head>
+<body class="font-body text-gray-300 antialiased">
+
+<canvas id="bg-canvas"></canvas>
+
+<div class="page-shell">
+
+  <!-- NAV -->
+  <header class="site-header">
+    <div class="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between relative">
+      <a href="/" class="font-display text-2xl tracking-widest text-white" style="text-shadow:0 0 18px #e42229;">
+        AFG<span class="text-crimson"> </span>Statsheet
+      </a>
+      <button class="hbg" id="hbg"><span></span><span></span><span></span></button>
+      <nav class="desktop-nav hidden md:flex items-center gap-8" id="main-nav">
+        <a href="/"       class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">QB</a>
+        <a href="/wr"     class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">WR</a>
+        <a href="/db"     class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">DB</a>
+        <a href="/rb"     class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">RB</a>
+        <a href="/def"    class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">Defender</a>
+        <a href="/kicker" class="font-condensed text-sm tracking-widest text-gray-400 hover:text-white transition-colors uppercase text-white">Kicker</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <!-- ════════════ HERO ════════════ -->
+  <section class="hero fade-in d1">
+    <div class="hero-grid"></div>
+
+    <div class="hero-inner max-w-7xl mx-auto flex items-center gap-10" style="padding:3rem 1.5rem;">
+
+      <!-- Avatar -->
+      <div class="avatar-wrap">
+        <img
+          id="player-avatar"
+          src="{{ player_avatar }}"
+          data-username="{{ username }}"
+          alt="{{ username }}"
+          width="144" height="144"
+          class="w-32 h-32 md:w-36 md:h-36"
+        />
+      </div>
+
+      <!-- Info -->
+      <div class="flex-1 min-w-0">
+        <a href="/"
+           class="inline-flex items-center gap-2 font-condensed text-xs tracking-widest text-gray-600 hover:text-crimson transition-colors uppercase mb-4">
+          ← Back to Statsheet
+        </a>
+
+        <div class="flex flex-wrap items-center gap-3 mb-2">
+          <span class="pos-badge">QB</span>
+        </div>
+
+        <h1 class="player-name font-display text-white leading-none mt-1"
+            style="font-size:4rem; letter-spacing:.06em; text-shadow:0 0 50px rgba(228,34,41,.28);">
+            {% if d1_stats is not none %}
+                {{ username }}
+            {% elif d2_stats is not none %}
+              {{ username }}
+            {% endif %}
+        </h1>
+
+        <!-- Meta -->
+        <div class="flex flex-wrap items-center gap-5 mt-4">
+          <div>
+            <div class="font-condensed text-xs tracking-widest text-gray-600 uppercase">Season</div>
+            <div class="font-condensed text-sm font-semibold text-gray-300 mt-0.5">24</div>
+          </div>
+          <div class="w-px h-8 bg-dark-4"></div>
+          <div class="games-played-meta">
+            <div class="font-condensed text-xs tracking-widest text-gray-600 uppercase mb-1">Games Played</div>
+            <div class="games-played-bars">
+              {% set gp_total = (d1_games_played + d2_games_played) %}
+              {% set gp_d1_pct = ((d1_games_played / gp_total) * 100) if gp_total > 0 else 0 %}
+              {% set gp_d2_pct = ((d2_games_played / gp_total) * 100) if gp_total > 0 else 0 %}
+              <div class="games-played-row">
+                <span class="gp-div-label">D1</span>
+                <div class="gp-bar-track">
+                  <div class="gp-bar gp-bar-d1" style="width:{{ gp_d1_pct | round(1) }}%"></div>
+                </div>
+                <span class="gp-count">{{ d1_games_played }}</span>
+              </div>
+              <div class="games-played-row">
+                <span class="gp-div-label">D2</span>
+                <div class="gp-bar-track">
+                  <div class="gp-bar gp-bar-d2" style="width:{{ gp_d2_pct | round(1) }}%"></div>
+                </div>
+                <span class="gp-count">{{ d2_games_played }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ════════════ CONTENT ════════════ -->
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-14">
+    {% if has_played %}
+
+    <!-- ── Section 1: Season Totals ── -->
+    <section class="fade-in d2">
+      <div class="sec-title mb-4">Season <span>Totals</span></div>
+
+      <!-- D1 / D2 outer tabs -->
+      <div class="div-tabs-wrap">
+        <div class="div-tabs" id="totals-div-tabs">
+          <button class="div-tab active" data-dtab="totals-d1">Division 1</button>
+          <button class="div-tab"        data-dtab="totals-d2">Division 2</button>
+        </div>
+      </div>
+
+      <!-- ══ D1 Totals panel ══ -->
+      <div class="div-panel active" id="totals-d1">
+        <div class="pos-tabs-wrap">
+          <div class="pos-tabs" data-posgroup="totals-d1">
+            <button class="pos-tab active" data-pos="td1-qb">QB</button>
+            <button class="pos-tab" data-pos="td1-wr">WR</button>
+            <button class="pos-tab" data-pos="td1-rb">RB</button>
+            <button class="pos-tab" data-pos="td1-db">DB</button>
+            <button class="pos-tab" data-pos="td1-defender">Defender</button>
+            <button class="pos-tab" data-pos="td1-kicker">Kicker</button>
+          </div>
+        </div>
+
+        <div class="pos-panel active" id="panel-td1-qb">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Throws</div><div class="stat-number">{{ d1_stats['qb']['throws'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Completions</div><div class="stat-number">{{ d1_stats['qb']['completions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Incompletions</div><div class="stat-number">{{ d1_stats['qb']['incompletions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['qb']['touchdowns'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Interceptions</div><div class="stat-number">{{ d1_stats['qb']['interceptions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Sacks Taken</div><div class="stat-number">{{ d1_stats['qb']['sacks_taken'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d1_stats['qb']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yds / Completion</div><div class="stat-number" style="font-size:2.5rem;">{% if d1_stats['qb']['completions'] > 0 %}{{ (d1_stats['qb']['yards'] / d1_stats['qb']['completions']) | round(1) }}{% else %}—{% endif %}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Comp %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d1_stats['qb']['throws'] > 0 %}{{ ((d1_stats['qb']['completions'] / d1_stats['qb']['throws']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td1-wr">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Catches</div><div class="stat-number">{{ d1_stats['wr']['catches'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Targets</div><div class="stat-number">{{ d1_stats['wr']['targets'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Receiving Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d1_stats['wr']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['wr']['touchdowns'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Catch %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d1_stats['wr']['targets'] > 0 %}{{ ((d1_stats['wr']['catches'] / d1_stats['wr']['targets']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+            <div class="stat-card"><div class="stat-label">Yds / Reception</div><div class="stat-number" style="font-size:2.5rem;">{% if d1_stats['wr']['catches'] > 0 %}{{ (d1_stats['wr']['yards'] / d1_stats['wr']['catches']) | round(1) }}{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td1-rb">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Carries</div><div class="stat-number">{{ d1_stats['rb']['attempts'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Rush Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d1_stats['rb']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Rush TDs</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['rb']['touchdowns'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td1-db">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Interceptions</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['db']['interceptions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Swats</div><div class="stat-number">{{ d1_stats['db']['swats'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Targets</div><div class="stat-number">{{ d1_stats['db']['targets'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{{ d1_stats['db']['touchdowns'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Catches Allowed</div><div class="stat-number">{{ d1_stats['db']['catches_allowed'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yards Allowed</div><div class="stat-number">{{ d1_stats['db']['yards_allowed'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns Allowed</div><div class="stat-number">{{ d1_stats['db']['tds_allowed'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td1-defender">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Tackles</div><div class="stat-number">{{ d1_stats['defender']['tackles'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Sacks</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['defender']['sacks'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Safeties</div><div class="stat-number" style="color:#f59e0b;">{{ d1_stats['defender']['safeties'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td1-kicker">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Attempts</div><div class="stat-number">{{ d1_stats['kicker']['attempts'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Kicks Made</div><div class="stat-number" style="color:#e42229;">{{ d1_stats['kicker']['kicks_made'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Kicks Missed</div><div class="stat-number">{{ d1_stats['kicker']['kicks_missed'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">FG %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d1_stats['kicker']['attempts'] > 0 %}{{ ((d1_stats['kicker']['kicks_made'] / d1_stats['kicker']['attempts']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+      </div><!-- /totals-d1 -->
+
+      <!-- ══ D2 Totals panel ══ -->
+      <div class="div-panel" id="totals-d2">
+        <div class="pos-tabs-wrap">
+          <div class="pos-tabs" data-posgroup="totals-d2">
+            <button class="pos-tab active" data-pos="td2-qb">QB</button>
+            <button class="pos-tab" data-pos="td2-wr">WR</button>
+            <button class="pos-tab" data-pos="td2-rb">RB</button>
+            <button class="pos-tab" data-pos="td2-db">DB</button>
+            <button class="pos-tab" data-pos="td2-defender">Defender</button>
+            <button class="pos-tab" data-pos="td2-kicker">Kicker</button>
+          </div>
+        </div>
+
+        <div class="pos-panel active" id="panel-td2-qb">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Throws</div><div class="stat-number">{{ d2_stats['qb']['throws'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Completions</div><div class="stat-number">{{ d2_stats['qb']['completions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Incompletions</div><div class="stat-number">{{ d2_stats['qb']['incompletions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['qb']['touchdowns'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Interceptions</div><div class="stat-number">{{ d2_stats['qb']['interceptions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Sacks Taken</div><div class="stat-number">{{ d2_stats['qb']['sacks_taken'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d2_stats['qb']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yds / Completion</div><div class="stat-number" style="font-size:2.5rem;">{% if d2_stats['qb']['completions'] > 0 %}{{ (d2_stats['qb']['yards'] / d2_stats['qb']['completions']) | round(1) }}{% else %}—{% endif %}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Comp %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d2_stats['qb']['throws'] > 0 %}{{ ((d2_stats['qb']['completions'] / d2_stats['qb']['throws']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td2-wr">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Catches</div><div class="stat-number">{{ d2_stats['wr']['catches'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Targets</div><div class="stat-number">{{ d2_stats['wr']['targets'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Receiving Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d2_stats['wr']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['wr']['touchdowns'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Catch %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d2_stats['wr']['targets'] > 0 %}{{ ((d2_stats['wr']['catches'] / d2_stats['wr']['targets']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+            <div class="stat-card"><div class="stat-label">Yds / Reception</div><div class="stat-number" style="font-size:2.5rem;">{% if d2_stats['wr']['catches'] > 0 %}{{ (d2_stats['wr']['yards'] / d2_stats['wr']['catches']) | round(1) }}{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td2-rb">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Carries</div><div class="stat-number">{{ d2_stats['rb']['attempts'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Rush Yards</div><div class="stat-number" style="font-size:2.5rem;">{{ d2_stats['rb']['yards'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Rush TDs</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['rb']['touchdowns'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td2-db">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Interceptions</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['db']['interceptions'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Swats</div><div class="stat-number">{{ d2_stats['db']['swats'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Targets</div><div class="stat-number">{{ d2_stats['db']['targets'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{{ d2_stats['db']['touchdowns'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Catches Allowed</div><div class="stat-number">{{ d2_stats['db']['catches_allowed'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Yards Allowed</div><div class="stat-number">{{ d2_stats['db']['yards_allowed'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Touchdowns Allowed</div><div class="stat-number">{{ d2_stats['db']['tds_allowed'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td2-defender">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Tackles</div><div class="stat-number">{{ d2_stats['defender']['tackles'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Sacks</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['defender']['sacks'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">Safeties</div><div class="stat-number" style="color:#f59e0b;">{{ d2_stats['defender']['safeties'] }}</div></div>
+          </div>
+        </div>
+        <div class="pos-panel" id="panel-td2-kicker">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div class="stat-card"><div class="stat-label">Attempts</div><div class="stat-number">{{ d2_stats['kicker']['attempts'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Kicks Made</div><div class="stat-number" style="color:#e42229;">{{ d2_stats['kicker']['kicks_made'] }}</div></div>
+            <div class="stat-card"><div class="stat-label">Kicks Missed</div><div class="stat-number">{{ d2_stats['kicker']['kicks_missed'] }}</div></div>
+            <div class="stat-card gold"><div class="stat-label">FG %</div><div class="stat-number" style="color:#f59e0b;font-size:2.5rem;">{% if d2_stats['kicker']['attempts'] > 0 %}{{ ((d2_stats['kicker']['kicks_made'] / d2_stats['kicker']['attempts']) * 100) | round(1) }}%{% else %}—{% endif %}</div></div>
+          </div>
+        </div>
+      </div><!-- /totals-d2 -->
+
+    </section>
+
+
+    <!-- ── Divider ── -->
+    <div class="red-divider">
+      <div class="line-l"></div>
+      <div class="diamond"></div>
+      <div class="line-r"></div>
+    </div>
+
+
+    <!-- ── Section 2: Game Log ── -->
+    <section class="fade-in d3">
+      <div class="sec-title mb-4">Game <span>Log</span></div>
+
+      <!-- D1 / D2 game log tabs -->
+      <div class="log-div-tabs-wrap">
+        <div class="log-div-tabs" id="log-div-tabs">
+          <button class="log-div-tab active" data-logtab="log-d1">Division 1</button>
+          <button class="log-div-tab"        data-logtab="log-d2">Division 2</button>
+        </div>
+      </div>
+
+      <!-- D1 Game Log -->
+      <div class="log-div-panel active" id="log-d1">
+        <div class="log-wrap rounded-sm">
+          <table class="game-log" id="gamelog-d1">
+            <thead>
+              <tr>
+                <th>Date</th><th>Description</th><th>Matchup</th><th>Winner</th><th>Loser</th><th>Player Status</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for game_hash in d1_game_stats %}
+              <tr class="game-data-row" data-game-id="d1-{{ loop.index }}">
+                <td>{{ d1_game_stats[game_hash]['qb']['date'] }}</td>
+                <td>{{ d1_game_stats[game_hash]['qb']['game_description'] }}</td>
+                <td style="min-width:150px;">
+                  <span class="font-display text-white" style="letter-spacing:.04em;">{{ d1_game_stats[game_hash]['qb']['winner'][0:3] | upper }}</span>
+                  <span class="text-gray-600 mx-1" style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;letter-spacing:.15em;">VS</span>
+                  <span class="font-display" style="color:#aaa;letter-spacing:.04em;">{{ d1_game_stats[game_hash]['qb']['loser'][0:3] | upper }}</span>
+                </td>
+                <td>{{ d1_game_stats[game_hash]['qb']['winner'][0:3] | upper }}</td>
+                <td>{{ d1_game_stats[game_hash]['qb']['loser'][0:3] | upper }}</td>
+                <td>{% if d1_game_stats[game_hash]['qb']['is_walkon'] %}
+                  <span class="walkon-badge"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Walkon</span>
+                  {% elif d1_game_stats[game_hash]['qb']['team'] == 'nil' %}
+                  <span class="spectator-badge"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Spectator</span>
+                  {% else %}
+                  <span class="player-badge"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>Player</span>
+                  {% endif %}</td>
+                <td style="text-align:center;color:#333;font-size:.8rem;transition:color .2s;" class="chevron-cell">▼</td>
+              </tr>
+              <tr class="game-detail-row" id="detail-d1-{{ loop.index }}">
+                <td colspan="10">
+                  <div class="game-detail-drawer">
+                    <div class="drawer-pos-tabs" data-drawer="d1-{{ loop.index }}">
+                      <button class="drawer-pos-tab active" data-dpanel="drawer-d1-{{ loop.index }}-qb">QB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d1-{{ loop.index }}-wr">WR</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d1-{{ loop.index }}-rb">RB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d1-{{ loop.index }}-db">DB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d1-{{ loop.index }}-def">Defender</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d1-{{ loop.index }}-kicker">Kicker</button>
+                    </div>
+                    {# QB #}
+                    <div class="drawer-pos-panel active" id="drawer-d1-{{ loop.index }}-qb">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Throws</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['qb']['throws'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Completions</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['qb']['completions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['qb']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['qb']['touchdowns'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Interceptions</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['qb']['interceptions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Sacks Taken</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['qb']['sacks_taken'] }}</div></div>
+                      </div>
+                    </div>
+                    {# WR #}
+                    <div class="drawer-pos-panel" id="drawer-d1-{{ loop.index }}-wr">
+                      
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Targets</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['wr']['targets'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Catches</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['wr']['catches'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['wr']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['wr']['touchdowns'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">YAC</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['wr']['yards_after_catch'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">INTs Allowed</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['wr']['ints_allowed'] }}</div></div>
+                      </div>
+                    </div>
+                    {# RB #}
+                    <div class="drawer-pos-panel" id="drawer-d1-{{ loop.index }}-rb">
+                      
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Attempts</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['rb']['attempts'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['rb']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['rb']['touchdowns'] }}</div></div>
+                      </div>
+                    </div>
+                    {# DB #}
+                    <div class="drawer-pos-panel" id="drawer-d1-{{ loop.index }}-db">
+                      
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Interceptions</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['db']['interceptions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Targets</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['db']['targets'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Swats</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['db']['swats'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Catches Allowed</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['db']['catches_allowed'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards Allowed</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['db']['yards_allowed'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">TDs Allowed</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['db']['tds_allowed'] }}</div></div>
+                      </div>
+                    </div>
+                    {# Defender #}
+                    <div class="drawer-pos-panel" id="drawer-d1-{{ loop.index }}-def">
+                      
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Tackles</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['defender']['tackles'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Sacks</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['defender']['sacks'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Safeties</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['defender']['safeties'] }}</div></div>
+                      </div>
+                    </div>
+                    {# Kicker #}
+                    <div class="drawer-pos-panel" id="drawer-d1-{{ loop.index }}-kicker">
+                      
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Attempts</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['kicker']['attempts'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Kicks Made</div><div class="drawer-stat-value accent">{{ d1_game_stats[game_hash]['kicker']['kicks_made'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Kicks Missed</div><div class="drawer-stat-value">{{ d1_game_stats[game_hash]['kicker']['kicks_missed'] }}</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              
+              {% else %}
+              <tr><td colspan="10" class="py-12 text-center font-condensed text-xs tracking-widest uppercase text-gray-700">No D1 game data available</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- D2 Game Log -->
+      <div class="log-div-panel" id="log-d2">
+        <div class="log-wrap rounded-sm">
+          <table class="game-log" id="gamelog-d2">
+            <thead>
+              <tr>
+                <th>Date</th><th>Matchup</th><th>Throws</th><th>Comp</th>
+                <th>Yards</th><th>TDs</th><th>INTs</th><th>Sacks</th><th>Walk-on</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for game_hash in d2_game_stats %}
+              <tr class="game-data-row" data-game-id="d2-{{ loop.index }}">
+                <td>{{ d2_game_stats[game_hash]['qb']['date'] }}</td>
+                <td style="min-width:150px;">
+                  <span class="font-display text-white" style="letter-spacing:.04em;">{{ d2_game_stats[game_hash]['qb']['winner'][0:3] | upper }}</span>
+                  <span class="text-gray-600 mx-1" style="font-family:'Barlow Condensed',sans-serif;font-size:.65rem;letter-spacing:.15em;">VS</span>
+                  <span class="font-display" style="color:#aaa;letter-spacing:.04em;">{{ d2_game_stats[game_hash]['qb']['loser'][0:3] | upper }}</span>
+                </td>
+                <td>{{ d2_game_stats[game_hash]['qb']['throws'] }}</td>
+                <td>{{ d2_game_stats[game_hash]['qb']['completions'] }}</td>
+                <td>{{ d2_game_stats[game_hash]['qb']['yards'] }}</td>
+                <td>{{ d2_game_stats[game_hash]['qb']['touchdowns'] }}</td>
+                <td>{{ d2_game_stats[game_hash]['qb']['interceptions'] }}</td>
+                <td>{{ d2_game_stats[game_hash]['qb']['sacks_taken'] }}</td>
+                <td>{% if d2_game_stats[game_hash]['qb']['is_walkon'] %}<span class="walkon-badge"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>W/O</span>{% else %}<span class="player-badge"><svg width="6" height="6" viewBox="0 0 6 6" fill="currentColor"><circle cx="3" cy="3" r="3"/></svg>player</span>{% endif %}</td>
+                <td style="text-align:center;color:#333;font-size:.8rem;transition:color .2s;" class="chevron-cell">▼</td>
+              </tr>
+              <tr class="game-detail-row" id="detail-d2-{{ loop.index }}">
+                <td colspan="10">
+                  <div class="game-detail-drawer">
+                    <div class="drawer-pos-tabs" data-drawer="d2-{{ loop.index }}">
+                      <button class="drawer-pos-tab active" data-dpanel="drawer-d2-{{ loop.index }}-qb">QB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d2-{{ loop.index }}-wr">WR</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d2-{{ loop.index }}-rb">RB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d2-{{ loop.index }}-db">DB</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d2-{{ loop.index }}-def">Defender</button>
+                      <button class="drawer-pos-tab" data-dpanel="drawer-d2-{{ loop.index }}-kicker">Kicker</button>
+                    </div>
+                    <div class="drawer-pos-panel active" id="drawer-d2-{{ loop.index }}-qb">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Throws</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['qb']['throws'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Completions</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['qb']['completions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['qb']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['qb']['touchdowns'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Interceptions</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['qb']['interceptions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Sacks Taken</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['qb']['sacks_taken'] }}</div></div>
+                      </div>
+                    </div>
+                    <div class="drawer-pos-panel" id="drawer-d2-{{ loop.index }}-wr">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Targets</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['wr']['targets'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Catches</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['wr']['catches'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['wr']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['wr']['touchdowns'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">YAC</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['wr']['yards_after_catch'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">INTs Allowed</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['wr']['ints_allowed'] }}</div></div>
+                      </div>
+                    </div>
+                    <div class="drawer-pos-panel" id="drawer-d2-{{ loop.index }}-rb">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Attempts</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['rb']['attempts'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['rb']['yards'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Touchdowns</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['rb']['touchdowns'] }}</div></div>
+                      </div>
+                    </div>
+                    <div class="drawer-pos-panel" id="drawer-d2-{{ loop.index }}-db">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Interceptions</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['db']['interceptions'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Targets</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['db']['targets'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Swats</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['db']['swats'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Catches Allowed</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['db']['catches_allowed'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Yards Allowed</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['db']['yards_allowed'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">TDs Allowed</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['db']['tds_allowed'] }}</div></div>
+                      </div>
+                    </div>
+                    <div class="drawer-pos-panel" id="drawer-d2-{{ loop.index }}-def">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Tackles</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['defender']['tackles'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Sacks</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['defender']['sacks'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Safeties</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['defender']['safeties'] }}</div></div>
+                      </div>
+                    </div>
+                    <div class="drawer-pos-panel" id="drawer-d2-{{ loop.index }}-kicker">
+                      <div class="drawer-stats-grid">
+                        <div class="drawer-stat"><div class="drawer-stat-label">Attempts</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['kicker']['attempts'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Kicks Made</div><div class="drawer-stat-value accent">{{ d2_game_stats[game_hash]['kicker']['kicks_made'] }}</div></div>
+                        <div class="drawer-stat"><div class="drawer-stat-label">Kicks Missed</div><div class="drawer-stat-value">{{ d2_game_stats[game_hash]['kicker']['kicks_missed'] }}</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="10" class="py-12 text-center font-condensed text-xs tracking-widest uppercase text-gray-700">No D2 game data available</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    {% else %}
+      <div class="py-20 text-center font-condensed tracking-[0.3em] uppercase text-gray-200 text-lg">
+        {{ username }} has not yet played an AFG game.
+      </div>
+    {% endif %}
+  </div><!-- /content -->
+
+
+  <!-- FOOTER -->
+  <footer class="border-t mt-10 py-5 px-6 flex justify-between items-center
+                 font-condensed text-xs tracking-widest text-gray-700 uppercase"
+          style="border-color:rgba(228,34,41,.15);">
+    <span>Random. © 2026</span>
+    <span style="color:#e42229;">◆</span>
+    <span>v1.0</span>
+  </footer>
+
+</div><!-- /page-shell -->
+
+
+<script>
+// Hamburger
+const hbg = document.getElementById('hbg');
+const nav = document.getElementById('main-nav');
+hbg.addEventListener('click', () => { hbg.classList.toggle('open'); nav.classList.toggle('open'); });
+
+// ── Division tabs for Season Totals ──
+document.querySelectorAll('#totals-div-tabs .div-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#totals-div-tabs .div-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#totals-d1, #totals-d2').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.dtab).classList.add('active');
+  });
+});
+
+// ── Position tabs — scoped per pos-tabs group ──
+document.querySelectorAll('.pos-tabs').forEach(tabBar => {
+  tabBar.querySelectorAll('.pos-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Deactivate siblings only within this tab bar
+      tabBar.querySelectorAll('.pos-tab').forEach(t => t.classList.remove('active'));
+      // Find parent div-panel to scope pos-panel deactivation
+      const parentPanel = tabBar.closest('.div-panel');
+      if (parentPanel) {
+        parentPanel.querySelectorAll('.pos-panel').forEach(p => p.classList.remove('active'));
+      }
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.pos).classList.add('active');
+    });
+  });
+});
+
+// ── Division tabs for Game Log ──
+document.querySelectorAll('#log-div-tabs .log-div-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#log-div-tabs .log-div-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#log-d1, #log-d2').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.logtab).classList.add('active');
+  });
+});
+
+// ── Roblox Avatar Fetch ──
+// If Flask didn't pre-populate player.headshot_url, fetch it client-side
+// via the Roblox API using the username stored in data-username.
+async function fetchRobloxAvatar(username) {
+  if (!username) return;
+  const avatarEl = document.getElementById('player-avatar');
+  // If already has a valid src, skip
+  if (avatarEl && avatarEl.src && !avatarEl.src.endsWith('/')) return;
+  try {
+    // Step 1: username → userId
+    const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+    });
+    const userData = await userRes.json();
+    const user = userData.data && userData.data[0];
+    if (!user) return;
+
+    // Step 2: userId → headshot thumbnail
+    const thumbRes = await fetch(
+      `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${user.id}&size=150x150&format=Png&isCircular=false`
+    );
+    const thumbData = await thumbRes.json();
+    const thumb = thumbData.data && thumbData.data[0];
+    if (thumb && thumb.imageUrl && avatarEl) {
+      avatarEl.src = thumb.imageUrl;
+    }
+  } catch (e) {
+    console.warn('Roblox avatar fetch failed:', e);
+  }
+}
+
+const avatarEl = document.getElementById('player-avatar');
+if (avatarEl) {
+  const username = avatarEl.dataset.username;
+  const existingSrc = avatarEl.getAttribute('src');
+  // Fetch if no headshot_url was provided by Flask
+  if (!existingSrc || existingSrc === '') {
+    fetchRobloxAvatar(username);
+  }
+}
+
+// ── Game row expand / collapse ──
+document.querySelectorAll('.game-data-row').forEach(row => {
+  row.addEventListener('click', () => {
+    const gameId   = row.dataset.gameId;
+    const detailRow = document.getElementById('detail-' + gameId);
+    const chevron  = row.querySelector('.chevron-cell');
+    const drawer   = detailRow ? detailRow.querySelector('.game-detail-drawer') : null;
+    const isOpen   = detailRow && detailRow.classList.contains('open');
+
+    // Close all other open drawers first
+    document.querySelectorAll('.game-detail-row.open').forEach(dr => {
+      dr.classList.remove('open');
+      dr.querySelector('.game-detail-drawer').style.display = 'none';
+      const prevDataRow = dr.previousElementSibling;
+      if (prevDataRow) {
+        prevDataRow.classList.remove('row-open');
+        const prevChev = prevDataRow.querySelector('.chevron-cell');
+        if (prevChev) { prevChev.style.color = '#333'; prevChev.style.transform = ''; }
+      }
+    });
+
+    if (!isOpen && detailRow && drawer) {
+      detailRow.classList.add('open');
+      drawer.style.display = 'block';
+      row.classList.add('row-open');
+      if (chevron) { chevron.style.color = 'var(--red)'; chevron.style.transform = 'rotate(180deg)'; }
+    }
+  });
+});
+
+// ── Drawer position tabs ──
+document.querySelectorAll('.drawer-pos-tabs').forEach(tabBar => {
+  tabBar.querySelectorAll('.drawer-pos-tab').forEach(tab => {
+    tab.addEventListener('click', e => {
+      e.stopPropagation(); // don't close the drawer when clicking tabs
+      tabBar.querySelectorAll('.drawer-pos-tab').forEach(t => t.classList.remove('active'));
+      const drawer = tabBar.closest('.game-detail-drawer');
+      if (drawer) drawer.querySelectorAll('.drawer-pos-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      const panel = document.getElementById(tab.dataset.dpanel);
+      if (panel) panel.classList.add('active');
+    });
+  });
+});
+
+
+const canvas = document.getElementById('bg-canvas');
+const ctx    = canvas.getContext('2d');
+let W, H;
+function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+class Ribbon {
+  constructor(){ this.reset(true); }
+  reset(init){
+    this.x     = init ? rand(0,W) : (Math.random()<.5?-60:W+60);
+    this.y     = rand(0,H);
+    this.vx    = rand(0.4,1.1)*(Math.random()<.5?1:-1);
+    this.vy    = rand(-0.5,0.5);
+    this.width = rand(1.2,5.5);
+    this.len   = rand(220,520);
+    this.hue   = Math.random()<.8?0:12;
+    this.sat   = rand(85,100);
+    this.lit   = rand(38,62);
+    this.alpha = rand(0.35,0.78);
+    this.tail  = [];
+    this.max   = Math.floor(this.len);
+    this.curve = rand(0.002,0.007)*(Math.random()<.5?1:-1);
+  }
+  update(){
+    this.vy += this.curve;
+    this.x  += this.vx; this.y += this.vy;
+    this.tail.push({x:this.x,y:this.y});
+    if(this.tail.length>this.max) this.tail.shift();
+    if(this.x<-200||this.x>W+200||this.y<-300||this.y>H+300) this.reset(false);
+  }
+  draw(){
+    if(this.tail.length<2) return;
+    const s=this.tail[0], e=this.tail[this.tail.length-1];
+    const mkPath=()=>{
+      ctx.beginPath(); ctx.moveTo(s.x,s.y);
+      for(let i=1;i<this.tail.length;i++){
+        const mx=(this.tail[i-1].x+this.tail[i].x)/2;
+        const my=(this.tail[i-1].y+this.tail[i].y)/2;
+        ctx.quadraticCurveTo(this.tail[i-1].x,this.tail[i-1].y,mx,my);
+      }
+    };
+    const g1=ctx.createLinearGradient(s.x,s.y,e.x,e.y);
+    g1.addColorStop(0,  `hsla(${this.hue},${this.sat}%,${this.lit}%,0)`);
+    g1.addColorStop(.5, `hsla(${this.hue},${this.sat}%,${this.lit}%,${this.alpha*.3})`);
+    g1.addColorStop(1,  `hsla(${this.hue},${this.sat}%,${this.lit}%,0)`);
+    mkPath(); ctx.strokeStyle=g1; ctx.lineWidth=this.width*4; ctx.lineCap=ctx.lineJoin='round'; ctx.stroke();
+
+    const g2=ctx.createLinearGradient(s.x,s.y,e.x,e.y);
+    g2.addColorStop(0,  `hsla(${this.hue},${this.sat}%,${this.lit}%,0)`);
+    g2.addColorStop(.4, `hsla(${this.hue},${this.sat}%,${this.lit}%,${this.alpha})`);
+    g2.addColorStop(.7, `hsla(${this.hue},${this.sat}%,${Math.min(this.lit+20,80)}%,${this.alpha})`);
+    g2.addColorStop(1,  `hsla(${this.hue},${this.sat}%,${this.lit+10}%,0)`);
+    mkPath(); ctx.strokeStyle=g2; ctx.lineWidth=this.width; ctx.lineCap=ctx.lineJoin='round'; ctx.stroke();
+  }
+}
+
+const ribbons = Array.from({length:22},()=>new Ribbon());
+let vc=null;
+function vignette(){
+  if(!vc||vc.w!==W||vc.h!==H){
+    const t=document.createElement('canvas'); t.width=W; t.height=H;
+    const tc=t.getContext('2d');
+    const g=tc.createRadialGradient(W/2,H/2,H*.1,W/2,H/2,H*.88);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.8)');
+    tc.fillStyle=g; tc.fillRect(0,0,W,H);
+    vc={img:t,w:W,h:H};
+  }
+  ctx.drawImage(vc.img,0,0);
+}
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  const b=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.58);
+  b.addColorStop(0,'rgba(160,5,15,0.15)'); b.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=b; ctx.fillRect(0,0,W,H);
+  ribbons.forEach(r=>{r.update();r.draw();});
+  vignette();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block page_title %}WR Stats{% endblock %}
+{% set active_page = 'wr' %}
+
+{% block heading %}Season 24 WR <span>Stats</span>{% endblock %}
+
+{% block content %}
+
+  {# ── Division 1 ── #}
+  <div class="tab-panel active" id="panel-div1">
+    <div class="table-container fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Yards</th>
+            <th>Yards per Catch</th>
+            <th>Targets</th>
+            <th>Catches</th>
+            <th>Touchdowns</th>
+            <th>YAC</th>
+            <th>Interceptions<br>Allowed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in wr_stats_div1 %}
+            <tr>
+              <td><a href="{{ url_for('player_stats', username=row['username']) }}" style="color:inherit;text-decoration:none;">{{ row['username'] }}</a></td>
+              <td>{{ row['yards'] }}</td>
+              {% if row['catches'] > 0 %}
+                <td>{{ (row['yards'] / row['catches']) | round(2) }}</td>
+              {% else %}
+                <td>0</td>
+              {% endif %}
+              <td>{{ row['targets'] }}</td>
+              <td>{{ row['catches'] }}</td>
+              <td>{{ row['touchdowns'] }}</td>
+              <td>{{ row['yards_after_catch'] }}</td>
+              <td>{{ row['ints_allowed'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="8">DIVISION 1 — SEASON 24 WR STATS</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  {# ── Division 2 ── #}
+  <div class="tab-panel" id="panel-div2">
+    <div class="table-container fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Yards</th>
+            <th>Yards per Catch</th>
+            <th>Targets</th>
+            <th>Catches</th>
+            <th>Touchdowns</th>
+            <th>YAC</th>
+            <th>Interceptions<br>Allowed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in wr_stats_div2 %}
+            <tr>
+              <td><a href="{{ url_for('player_stats', username=row['username']) }}" style="color:inherit;text-decoration:none;">{{ row['username'] }}</a></td>
+              <td>{{ row['yards'] }}</td>
+              {% if row['catches'] > 0 %}
+                <td>{{ (row['yards'] / row['catches']) | round(2) }}</td>
+              {% else %}
+                <td>0</td>
+              {% endif %}
+              <td>{{ row['targets'] }}</td>
+              <td>{{ row['catches'] }}</td>
+              <td>{{ row['touchdowns'] }}</td>
+              <td>{{ row['yards_after_catch'] }}</td>
+              <td>{{ row['ints_allowed'] }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="8">DIVISION 2 — SEASON 4 WR STATS</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+{% endblock %}
